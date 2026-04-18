@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.momen
 
 import com.lagradost.cloudstream3.*
