@@ -1,5 +1,6 @@
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 buildscript {
@@ -29,7 +30,6 @@ subprojects {
     apply(plugin = "com.lagradost.cloudstream3.gradle")
 
     extensions.configure<CloudstreamExtension> {
-        // تأكد من وضع اسم المستودع الخاص بك هنا أو اتركها تجلب تلقائياً
         setRepo(System.getenv("GITHUB_REPOSITORY") ?: "youssefsouri90-art/carateen-extension")
     }
 
@@ -49,20 +49,21 @@ subprojects {
 
         tasks.withType<KotlinJvmCompile>().configureEach {
             compilerOptions {
-                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+                jvmTarget.set(JvmTarget.JVM_17)
                 freeCompilerArgs.add("-Xskip-metadata-version-check")
             }
         }
     }
 
     dependencies {
-        // هذه هي الأسطر السحرية التي تستخدمها إضافات 3arabi
-        val cloudstream by configurations.creating
-        cloudstream("com.github.lagradost:cloudstream3:master-SNAPSHOT")
+        // تعريف يدوي للـ Configurations لتجنب أي تعارض
+        val cloudstream by configurations.getting
         
-        implementation("org.jsoup:jsoup:1.18.3")
-        implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2")
-        // NiceHttp مدمجة في السناب شوت أعلاه، لا داعي لإضافتها منفصلة وتسبب أخطاء
+        // الطريقة الصحيحة والمضمونة في Kotlin DSL داخل subprojects
+        add(cloudstream.name, "com.github.lagradost:cloudstream3:master-SNAPSHOT")
+        add("implementation", "org.jsoup:jsoup:1.18.3")
+        add("implementation", "com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2")
+        // NiceHttp مدمجة في السناب شوت، لا تضفها لكي لا تفشل العملية
     }
 }
 
