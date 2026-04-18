@@ -3,6 +3,8 @@ package com.momen
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.net.URLEncoder
 
@@ -25,19 +27,33 @@ class CarateenProvider : MainAPI() {
         "$mainUrl/category/movies/" to "أفلام"
     )
 
+    private fun getDoc(url: String): Document {
+        return Jsoup.connect(url)
+            .userAgent("Mozilla/5.0")
+            .header("Referer", mainUrl)
+            .timeout(15000)
+            .get()
+    }
+
     private fun safeFix(url: String?): String? {
         if (url.isNullOrBlank()) return null
         return fixUrl(url)
     }
 
     private fun parseCard(el: Element): SearchResponse? {
-        val a = if (el.tagName() == "a" && el.hasAttr("href")) el else el.selectFirst("a[href]")
-        val href = safeFix(a?.attr("href")) ?: return null
+        val a: Element = if (el.tagName() == "a" && el.hasAttr("href")) {
+            el
+        } else {
+            el.selectFirst("a[href]") ?: return null
+        }
+
+        val href = safeFix(a.attr("href")) ?: return null
         if (href.contains("/watch/")) return null
 
-        val title = a.selectFirst("img[alt]")?.attr("alt")?.trim()?.takeIf { it.isNotBlank() }
-            ?: a.selectFirst("h1,h2,h3,h4,.title,.entry-title")?.text()?.trim()?.takeIf { it.isNotBlank() }
-            ?: return null
+        val title =
+            a.selectFirst("img[alt]")?.attr("alt")?.trim()?.takeIf { value -> value.isNotBlank() }
+                ?: a.selectFirst("h1,h2,h3,h4,.title,.entry-title")?.text()?.trim()?.takeIf { value -> value.isNotBlank() }
+                ?: return null
 
         val poster = safeFix(
             a.selectFirst("img[data-src]")?.attr("data-src")
@@ -56,26 +72,26 @@ class CarateenProvider : MainAPI() {
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val doc = app.get(request.data).document
+        val doc = getDoc(request.data)
 
         val results = doc.select("a:has(img)")
-            .mapNotNull { parseCard(it) }
-            .distinctBy { it.url }
+            .mapNotNull { element -> parseCard(element) }
+            .distinctBy { response -> response.url }
 
         return newHomePageResponse(request.name, results)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
         val q = URLEncoder.encode(query, "UTF-8")
-        val doc = app.get("$mainUrl/?s=$q").document
+        val doc = getDoc("$mainUrl/?s=$q")
 
         return doc.select("a:has(img)")
-            .mapNotNull { parseCard(it) }
-            .distinctBy { it.url }
+            .mapNotNull { element -> parseCard(element) }
+            .distinctBy { response -> response.url }
     }
 
     override suspend fun load(url: String): LoadResponse? {
-        val doc = app.get(url).document
+        val doc = getDoc(url)
 
         val title = doc.selectFirst("h1")?.text()?.trim() ?: return null
 
@@ -86,12 +102,12 @@ class CarateenProvider : MainAPI() {
         )
 
         val plot = doc.selectFirst("meta[name=description]")?.attr("content")
-            ?.takeIf { it.isNotBlank() }
+            ?.takeIf { value -> value.isNotBlank() }
             ?: doc.selectFirst(".story,.plot,.description,.entry-content p")?.text()
 
         val tags = doc.select("a[rel=tag], .genres a, .tagcloud a")
-            .map { it.text().trim() }
-            .filter { it.isNotBlank() }
+            .map { tag -> tag.text().trim() }
+            .filter { value -> value.isNotBlank() }
 
         val episodes = mutableListOf<Episode>()
 
@@ -109,7 +125,7 @@ class CarateenProvider : MainAPI() {
             )
         }
 
-        val isMovie = url.contains("/movie/") || tags.any { it.contains("فيلم") } || episodes.isEmpty()
+        val isMovie = url.contains("/movie/") || tags.any { tag -> tag.contains("فيلم") } || episodes.isEmpty()
 
         return if (!isMovie) {
             newTvSeriesLoadResponse(title, url, TvType.Anime, episodes) {
@@ -133,22 +149,19 @@ class CarateenProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val doc = app.get(
-            data,
-            headers = mapOf("Referer" to mainUrl)
-        ).document
-
+        val doc = getDoc(data)
         val html = doc.html()
 
         val directLinks = mutableListOf<String>()
 
-        doc.select("video source[src], source[src], iframe[src], a[href$=.m3u8], a[href$=.mp4]").forEach { el ->
-            val value = el.attr("src").ifBlank { el.attr("href") }
-            val fixed = safeFix(value)
-            if (!fixed.isNullOrBlank() && fixed.startsWith("http")) {
-                directLinks.add(fixed)
+        doc.select("video source[src], source[src], iframe[src], a[href$=.m3u8], a[href$=.mp4]")
+            .forEach { el ->
+                val raw = el.attr("src").ifBlank { el.attr("href") }
+                val fixed = safeFix(raw)
+                if (!fixed.isNullOrBlank() && fixed.startsWith("http")) {
+                    directLinks.add(fixed)
+                }
             }
-        }
 
         val regexes = listOf(
             Regex("https?://[^\\\"'\\s>]+\\.m3u8[^\\\"'\\s<]*"),
@@ -156,9 +169,9 @@ class CarateenProvider : MainAPI() {
             Regex("https?://[^\\\"'\\s>]+\\.mp4[^\\\"'\\s<]*")
         )
 
-        for (rx in regexes) {
-            rx.findAll(html).forEach { m ->
-                directLinks.add(m.value)
+        regexes.forEach { rx ->
+            rx.findAll(html).forEach { match ->
+                directLinks.add(match.value)
             }
         }
 
