@@ -29,8 +29,6 @@ subprojects {
     apply(plugin = "kotlin-android")
     apply(plugin = "com.lagradost.cloudstream3.gradle")
 
-    val cloudstream = configurations.maybeCreate("cloudstream")
-
     extensions.configure<CloudstreamExtension> {
         setRepo(System.getenv("GITHUB_REPOSITORY") ?: "youssefsouri90-art/carateen-extension")
     }
@@ -57,14 +55,16 @@ subprojects {
         }
     }
 
+    // هنا استخدما الصيغة المباشرة التي تمنع خطأ "Unresolved reference implementation"
     dependencies {
-        // الحل الجذري: نستخدم النسخة المرفوعة مسبقاً (Pre-release) 
-        // لأنها تحتوي على NiceHttp بداخلها ولا تحتاج لتحميل خارجي
-        cloudstream("com.github.lagradost:cloudstream3:pre-release")
+        "cloudstream"("com.github.lagradost:cloudstream3:pre-release")
         
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.18.3")
         implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2")
+        
+        // إضافة المكتبة التي سببت الصداع سابقاً بشكل مدمج
+        implementation("com.github.lagradost:NiceHttp:0.4.11") 
     }
 }
 
