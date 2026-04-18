@@ -36,17 +36,14 @@ subprojects {
     extensions.configure<BaseExtension> {
         namespace = "com.momen.carateen"
         compileSdkVersion(35)
-
         defaultConfig {
             minSdk = 21
             targetSdk = 35
         }
-
         compileOptions {
             sourceCompatibility = JavaVersion.VERSION_17
             targetCompatibility = JavaVersion.VERSION_17
         }
-
         tasks.withType<KotlinJvmCompile>().configureEach {
             compilerOptions {
                 jvmTarget.set(JvmTarget.JVM_17)
@@ -56,14 +53,14 @@ subprojects {
     }
 
     dependencies {
-        // تعريف يدوي للـ Configurations لتجنب أي تعارض
         val cloudstream by configurations.getting
-        
-        // الطريقة الصحيحة والمضمونة في Kotlin DSL داخل subprojects
         add(cloudstream.name, "com.github.lagradost:cloudstream3:master-SNAPSHOT")
+        
+        // الحل السحري لمشكلة "Cannot access class Requests"
+        add("compileOnly", "com.github.lagradost:NiceHttp:main-SNAPSHOT")
+        
         add("implementation", "org.jsoup:jsoup:1.18.3")
         add("implementation", "com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2")
-        // NiceHttp مدمجة في السناب شوت، لا تضفها لكي لا تفشل العملية
     }
 }
 
