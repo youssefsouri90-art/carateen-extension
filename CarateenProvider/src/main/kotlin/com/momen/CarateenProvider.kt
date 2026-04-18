@@ -41,6 +41,7 @@ class CarateenProvider : MainAPI() {
         return fixUrl(url)
     }
 
+    // تم تعديل الدالة لإزالة شرط /watch/ وتحسين استخراج العناوين
     private fun parseCard(el: Element): SearchResponse? {
         val a: Element = if (el.tagName() == "a" && el.hasAttr("href")) {
             el
@@ -49,11 +50,13 @@ class CarateenProvider : MainAPI() {
         }
 
         val href = safeFix(a.attr("href")) ?: return null
-        if (href.contains("/watch/")) return null
+        
+        // تم حذف السطر الذي كان يسبب اختفاء المحتوى (if href.contains("/watch/"))
 
         val title =
-            a.selectFirst("img[alt]")?.attr("alt")?.trim()?.takeIf { value -> value.isNotBlank() }
-                ?: a.selectFirst("h1,h2,h3,h4,.title,.entry-title")?.text()?.trim()?.takeIf { value -> value.isNotBlank() }
+            a.selectFirst("img[alt]")?.attr("alt")?.trim()?.takeIf { it.isNotBlank() }
+                ?: a.selectFirst("h1,h2,h3,h4,.title,.entry-title")?.text()?.trim()?.takeIf { it.isNotBlank() }
+                ?: a.attr("title").trim().takeIf { it.isNotBlank() }
                 ?: return null
 
         val poster = safeFix(
@@ -61,7 +64,12 @@ class CarateenProvider : MainAPI() {
                 ?: a.selectFirst("img[src]")?.attr("src")
         )
 
-        return if (href.contains("/movie/") || href.contains("/movies/")) {
+        val isMovieCard =
+            href.contains("/movie/") ||
+            href.contains("/movies/") ||
+            title.contains("فيلم")
+
+        return if (isMovieCard) {
             newMovieSearchResponse(title, href, TvType.Movie) {
                 this.posterUrl = poster
             }
@@ -75,7 +83,8 @@ class CarateenProvider : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val doc = getDoc(request.data)
 
-        val results = doc.select("a:has(img)")
+        // تم توسيع المحددات (Selectors) لضمان التقاط جميع البطاقات
+        val results = doc.select("article a:has(img), .post a:has(img), .item a:has(img), a:has(img)")
             .mapNotNull { element -> parseCard(element) }
             .distinctBy { response -> response.url }
 
@@ -86,7 +95,8 @@ class CarateenProvider : MainAPI() {
         val q = URLEncoder.encode(query, "UTF-8")
         val doc = getDoc("$mainUrl/?s=$q")
 
-        return doc.select("a:has(img)")
+        // تم تحسين محدد البحث أيضاً
+        return doc.select("article a:has(img), .post a:has(img), .item a:has(img), a:has(img)")
             .mapNotNull { element -> parseCard(element) }
             .distinctBy { response -> response.url }
     }
@@ -103,12 +113,12 @@ class CarateenProvider : MainAPI() {
         )
 
         val plot = doc.selectFirst("meta[name=description]")?.attr("content")
-            ?.takeIf { value -> value.isNotBlank() }
+            ?.takeIf { it.isNotBlank() }
             ?: doc.selectFirst(".story,.plot,.description,.entry-content p")?.text()
 
         val tags = doc.select("a[rel=tag], .genres a, .tagcloud a")
             .map { tag -> tag.text().trim() }
-            .filter { value -> value.isNotBlank() }
+            .filter { it.isNotBlank() }
 
         val episodes = mutableListOf<Episode>()
 
@@ -118,14 +128,14 @@ class CarateenProvider : MainAPI() {
             val epNum = Regex("(\\d+)").find(text)?.groupValues?.getOrNull(1)?.toIntOrNull()
 
             episodes.add(
-    newEpisode(href) {
-        this.name = if (text.isNotBlank()) text else null
-        this.episode = epNum
-    }
-)
+                newEpisode(href) {
+                    this.name = if (text.isNotBlank()) text else null
+                    this.episode = epNum
+                }
+            )
         }
 
-        val isMovie = url.contains("/movie/") || tags.any { tag -> tag.contains("فيلم") } || episodes.isEmpty()
+        val isMovie = url.contains("/movie/") || tags.any { it.contains("فيلم") } || episodes.isEmpty()
 
         return if (!isMovie) {
             newTvSeriesLoadResponse(title, url, TvType.Anime, episodes) {
@@ -143,8 +153,7 @@ class CarateenProvider : MainAPI() {
         }
     }
 
-    
-override suspend fun loadLinks(
+    override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,
@@ -180,15 +189,15 @@ override suspend fun loadLinks(
 
         links.forEach { link ->
             callback(
-    ExtractorLink(
-        source = name,
-        name = if (link.contains(".m3u8")) "$name HLS" else name,
-        url = link,
-        referer = mainUrl,
-        quality = Qualities.Unknown.value,
-        isM3u8 = link.contains(".m3u8")
-    )
-)
+                ExtractorLink(
+                    source = name,
+                    name = if (link.contains(".m3u8")) "$name HLS" else name,
+                    url = link,
+                    referer = mainUrl,
+                    quality = Qualities.Unknown.value,
+                    isM3u8 = link.contains(".m3u8")
+                )
+            )
         }
 
         return links.isNotEmpty()
