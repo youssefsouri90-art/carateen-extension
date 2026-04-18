@@ -117,12 +117,11 @@ class CarateenProvider : MainAPI() {
             val epNum = Regex("(\\d+)").find(text)?.groupValues?.getOrNull(1)?.toIntOrNull()
 
             episodes.add(
-                Episode(
-                    data = href,
-                    name = if (text.isNotBlank()) text else null,
-                    episode = epNum
-                )
-            )
+    newEpisode(href) {
+        this.name = if (text.isNotBlank()) text else null
+        this.episode = epNum
+    }
+)
         }
 
         val isMovie = url.contains("/movie/") || tags.any { tag -> tag.contains("فيلم") } || episodes.isEmpty()
@@ -179,15 +178,16 @@ class CarateenProvider : MainAPI() {
 
         links.forEach { link ->
             callback(
-                ExtractorLink(
-                    source = name,
-                    name = if (link.contains(".m3u8")) "$name HLS" else name,
-                    url = link,
-                    referer = mainUrl,
-                    quality = Qualities.Unknown.value,
-                    isM3u8 = link.contains(".m3u8")
-                )
-            )
+    newExtractorLink(
+        source = name,
+        name = if (link.contains(".m3u8")) "$name HLS" else name,
+        url = link
+    ) {
+        this.referer = mainUrl
+        this.quality = Qualities.Unknown.value
+        this.isM3u8 = link.contains(".m3u8")
+    }
+)
         }
 
         return links.isNotEmpty()
