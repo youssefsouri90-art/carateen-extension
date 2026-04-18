@@ -3,9 +3,10 @@ package com.momen
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Element
-import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.Qualities
 
 class CarateenProvider : MainAPI() {
     override var mainUrl = "https://carateen.tv"
@@ -13,13 +14,11 @@ class CarateenProvider : MainAPI() {
     override val hasMainPage = true
     override var lang = "ar"
     
-    // تم حصر الأنواع في الكرتون والأنمي فقط بما يناسب الموقع
     override val supportedTypes = setOf(
         TvType.Cartoon,
         TvType.Anime
     )
 
-    // الكتالوج الفعلي لموقع كاراطين (الأقسام الموجودة في القائمة الجانبية للموقع)
     override val mainPage = mainPageOf(
         "$mainUrl/" to "الرئيسية (آخر الحلقات)",
         "$mainUrl/category/%d9%83%d8%b1%d8%aa%d9%88%d9%86/" to "مسلسلات كرتون",
@@ -30,10 +29,11 @@ class CarateenProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page <= 1) request.data else "${request.data}/page/$page/"
-        val doc = app.get(url).document
+        // استخدام الطريقة الأكثر أماناً للطلب لضمان التوافق
+        val response = app.get(url)
+        val doc = response.document
         
-        // التقاط محتوى الكرتون بناءً على هيكلية الموقع (Grid)
-        val items = doc.select("article, .post-item, .item-list li").mapNotNull { element ->
+        val items = doc.select("article, .post-item, .item-list li").mapNotNull { element: Element ->
             parseCard(element)
         }
         
@@ -54,33 +54,32 @@ class CarateenProvider : MainAPI() {
         val poster = fixUrl(
             el.selectFirst("img")?.attr("data-src") 
             ?: el.selectFirst("img")?.attr("src")
-            ?: el.selectFirst("img")?.attr("data-lazy-src")
             ?: ""
         )
 
-        // كل محتوى الموقع يتم تصنيفه كـ Cartoon ليعمل داخل قسم الكرتون في التطبيق
         return newAnimeSearchResponse(title, href, TvType.Cartoon) {
             this.posterUrl = poster
         }
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val doc = app.get("$mainUrl/?s=$query").document
-        return doc.select("article, .post-item").mapNotNull { element -> 
+        val response = app.get("$mainUrl/?s=$query")
+        val doc = response.document
+        return doc.select("article, .post-item").mapNotNull { element: Element -> 
             parseCard(element) 
         }
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val doc = app.get(url).document
+        val response = app.get(url)
+        val doc = response.document
         val title = doc.selectFirst("h1, .post-title, .entry-title")?.text()?.trim() ?: ""
         val poster = fixUrl(doc.selectFirst("meta[property=og:image]")?.attr("content") ?: "")
-        val plot = doc.selectFirst(".entry-content p, .post-details, .story, .plot")?.text()
+        val plot = doc.selectFirst(".entry-content p, .post-details, .story")?.text()
 
         val episodes = mutableListOf<Episode>()
         
-        // جلب حلقات الكرتون
-        doc.select("a[href*='/watch/'], .episodes-list a, .playlist-items a").forEach { element ->
+        doc.select("a[href*='/watch/'], .episodes-list a, .playlist-items a").forEach { element: Element ->
             val href = fixUrl(element.attr("href"))
             val name = element.text().trim().ifBlank { "مشاهدة" }
             episodes.add(newEpisode(href) {
@@ -93,7 +92,6 @@ class CarateenProvider : MainAPI() {
             episodes.add(newEpisode(url) { this.name = title })
         }
 
-        // بما أن الموقع مخصص للكرتون، نستخدم تصنيف TvSeries ليعرض قائمة الحلقات
         return newTvSeriesLoadResponse(title, url, TvType.Cartoon, episodes) {
             this.posterUrl = poster
             this.plot = plot
@@ -106,12 +104,12 @@ class CarateenProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val doc = app.get(data).document
-        val html = doc.html()
+        val response = app.get(data)
+        val html = response.text
+        val doc = response.document
         var found = false
 
-        // مشغلات موقع كاراطين المعروفة
-        doc.select("iframe[src*='player'], iframe[src*='vidoza'], iframe[src*='ok.ru'], .video-iframe iframe").forEach { element ->
+        doc.select("iframe[src*='player'], iframe[src*='vidoza'], iframe[src*='ok.ru'], .video-iframe iframe").forEach { element: Element ->
             val src = fixUrl(element.attr("src"))
             loadExtractor(src, mainUrl, subtitleCallback, callback)
             found = true
@@ -125,14 +123,15 @@ class CarateenProvider : MainAPI() {
         patterns.forEach { pattern ->
             pattern.findAll(html).forEach { match ->
                 val link = match.groupValues.last()
+                // استخدام newExtractorLink بدلاً من الـ Constructor القديم
                 callback(
-                    ExtractorLink(
-                        source = this.name,
-                        name = this.name,
-                        url = link,
-                        referer = mainUrl,
-                        quality = Qualities.Unknown.value,
-                        isM3u8 = link.contains(".m3u8")
+                    newExtractorLink(
+                        this.name,
+                        this.name,
+                        link,
+                        mainUrl,
+                        Qualities.Unknown.value,
+                        link.contains(".m3u8")
                     )
                 )
                 found = true
