@@ -55,16 +55,14 @@ subprojects {
         }
     }
 
-    // هنا استخدما الصيغة المباشرة التي تمنع خطأ "Unresolved reference implementation"
+    // الطريقة المضمونة للوصول للتبعيات في subprojects داخل Kotlin DSL
     dependencies {
-        "cloudstream"("com.github.lagradost:cloudstream3:pre-release")
+        add("cloudstream", "com.github.lagradost:cloudstream3:pre-release")
         
-        implementation(kotlin("stdlib"))
-        implementation("org.jsoup:jsoup:1.18.3")
-        implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2")
-        
-        // إضافة المكتبة التي سببت الصداع سابقاً بشكل مدمج
-        implementation("com.github.lagradost:NiceHttp:0.4.11") 
+        add("implementation", kotlin("stdlib"))
+        add("implementation", "org.jsoup:jsoup:1.18.3")
+        add("implementation", "com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2")
+        add("implementation", "com.github.lagradost:NiceHttp:0.4.11")
     }
 }
 
