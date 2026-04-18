@@ -29,9 +29,7 @@ subprojects {
     apply(plugin = "kotlin-android")
     apply(plugin = "com.lagradost.cloudstream3.gradle")
 
-    // الحل الصحيح: استخدام maybeCreate لتجنب خطأ "Already Exists" أو "Not Found"
     val cloudstream = configurations.maybeCreate("cloudstream")
-    val implementation = configurations.getByName("implementation")
 
     extensions.configure<CloudstreamExtension> {
         setRepo(System.getenv("GITHUB_REPOSITORY") ?: "youssefsouri90-art/carateen-extension")
@@ -60,10 +58,10 @@ subprojects {
     }
 
     dependencies {
-        // نستخدم الإعداد الذي قمنا بجلبه/إنشائه فوق
-        "cloudstream"("com.github.lagradost:cloudstream3:master-SNAPSHOT")
+        // الحل الجذري: نستخدم النسخة المرفوعة مسبقاً (Pre-release) 
+        // لأنها تحتوي على NiceHttp بداخلها ولا تحتاج لتحميل خارجي
+        cloudstream("com.github.lagradost:cloudstream3:pre-release")
         
-        implementation("com.github.lagradost:NiceHttp:main-SNAPSHOT")
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.18.3")
         implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2")
