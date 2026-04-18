@@ -29,9 +29,9 @@ subprojects {
     apply(plugin = "kotlin-android")
     apply(plugin = "com.lagradost.cloudstream3.gradle")
 
-    // تعريف الـ Configurations يدوياً لحل مشكلة "not found"
-    val cloudstream by configurations.creating
-    val implementation by configurations.getting
+    // الحل الصحيح: استخدام maybeCreate لتجنب خطأ "Already Exists" أو "Not Found"
+    val cloudstream = configurations.maybeCreate("cloudstream")
+    val implementation = configurations.getByName("implementation")
 
     extensions.configure<CloudstreamExtension> {
         setRepo(System.getenv("GITHUB_REPOSITORY") ?: "youssefsouri90-art/carateen-extension")
@@ -60,10 +60,10 @@ subprojects {
     }
 
     dependencies {
-        // سحب المكتبات بالروابط المباشرة الصحيحة
-        cloudstream("com.github.lagradost:cloudstream3:master-SNAPSHOT")
-        implementation("com.github.lagradost:NiceHttp:main-SNAPSHOT")
+        // نستخدم الإعداد الذي قمنا بجلبه/إنشائه فوق
+        "cloudstream"("com.github.lagradost:cloudstream3:master-SNAPSHOT")
         
+        implementation("com.github.lagradost:NiceHttp:main-SNAPSHOT")
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.18.3")
         implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2")
