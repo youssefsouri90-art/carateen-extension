@@ -62,9 +62,9 @@ subprojects {
         val cloudstream by configurations
         val implementation by configurations
 
+        // استخدام النسخة المحددة لضمان العثور عليها في JitPack
         cloudstream("com.github.lagradost:cloudstream3:master-SNAPSHOT")
-        // إضافة NiceHttp بشكل صريح لحل مشكلة 'Cannot access class Requests'
-        implementation("com.github.lagradost:nicehttp:main-SNAPSHOT")
+        implementation("com.github.lagradost:NiceHttp:0.5.2") // نسخة مستقرة ومتاحة
         
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.18.3")
@@ -72,6 +72,6 @@ subprojects {
     }
 }
 
-task<Delete>("clean") {
+tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
