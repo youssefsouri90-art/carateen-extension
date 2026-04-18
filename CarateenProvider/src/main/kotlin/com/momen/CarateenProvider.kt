@@ -4,8 +4,12 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.utils.Qualities
-import com.lagradost.cloudstream3.app // استيراد صريح لحل مشكلة Unresolved reference app
+
+// استخدام استيراد صريح جداً للمكتبات التي تفشل
+import com.lagradost.cloudstream3.MainActivity.Companion.app
 
 class CarateenProvider : MainAPI() {
     override var mainUrl = "https://carateen.tv"
@@ -18,19 +22,20 @@ class CarateenProvider : MainAPI() {
         TvType.Anime
     )
 
+    // الكتالوج المخصص لمحتوى كاراطين الحقيقي
     override val mainPage = mainPageOf(
-        "$mainUrl/" to "آخر الحلقات",
+        "$mainUrl/" to "الرئيسية",
         "$mainUrl/category/%d9%83%d8%b1%d8%aa%d9%88%d9%86/" to "مسلسلات كرتون",
         "$mainUrl/category/anime/" to "أنمي صغار",
-        "$mainUrl/category/%d8%b3%d9%8a%d9%86%d9%85%d8%a7-%d9%84%d9%84%d8%a3%d8%b7%d9%81%d8%a7%d9%84/" to "سينما الأطفال",
-        "$mainUrl/category/%d8%a8%d8%b1%d8%a7%d9%85%d8%ac-%d8%a7%d9%8ل%d8%a3%d8%b7%d9%81%d8%a7%d9%84/" to "برامج الأطفال"
+        "$mainUrl/category/%d8%b3%d9%8a%d9%86%d9%85%d8%a7-%d9%84%d9%84%d8%a3%d8%b7%d9%81%d8%a7%d9%84/" to "سينما الأطفال"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page <= 1) request.data else "${request.data}/page/$page/"
-        val doc = app.get(url).document
+        val response = app.get(url) // الطلب بشكل منفصل
+        val doc = response.document
         
-        val items = doc.select("article, .post-item, .item-list li").mapNotNull { element ->
+        val items = doc.select("article, .post-item").mapNotNull { element: Element ->
             parseCard(element)
         }
         
@@ -43,7 +48,7 @@ class CarateenProvider : MainAPI() {
         
         if (href.contains("/category/") || href.endsWith("/tv/")) return null
 
-        val title = el.selectFirst("h2, h3, .post-title, .title, .entry-title")?.text()?.trim()
+        val title = el.selectFirst("h2, h3, .post-title")?.text()?.trim()
             ?: a.attr("title")?.trim()
             ?: el.selectFirst("img")?.attr("alt")?.trim()
             ?: return null
@@ -60,36 +65,31 @@ class CarateenProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val doc = app.get("$mainUrl/?s=$query").document
-        return doc.select("article, .post-item").mapNotNull { element -> 
+        val response = app.get("$mainUrl/?s=$query")
+        return response.document.select("article, .post-item").mapNotNull { element: Element -> 
             parseCard(element) 
         }
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val doc = app.get(url).document
-        val title = doc.selectFirst("h1, .post-title, .entry-title")?.text()?.trim() ?: ""
+        val response = app.get(url)
+        val doc = response.document
+        val title = doc.selectFirst("h1, .post-title")?.text()?.trim() ?: ""
         val poster = fixUrl(doc.selectFirst("meta[property=og:image]")?.attr("content") ?: "")
-        val plot = doc.selectFirst(".entry-content p, .post-details, .story")?.text()
-
-        val episodes = mutableListOf<Episode>()
         
-        doc.select("a[href*='/watch/'], .episodes-list a, .playlist-items a").forEach { element ->
-            val href = fixUrl(element.attr("href"))
-            val name = element.text().trim().ifBlank { "مشاهدة" }
-            episodes.add(newEpisode(href) {
-                this.name = name
-                this.episode = Regex("""\d+""").find(name)?.value?.toIntOrNull()
+        val episodes = mutableListOf<Episode>()
+        doc.select("a[href*='/watch/'], .episodes-list a").forEach { element: Element ->
+            val eHref = fixUrl(element.attr("href"))
+            val eName = element.text().trim()
+            episodes.add(newEpisode(eHref) {
+                this.name = eName
             })
         }
 
-        if (episodes.isEmpty()) {
-            episodes.add(newEpisode(url) { this.name = title })
-        }
+        if (episodes.isEmpty()) episodes.add(newEpisode(url) { this.name = title })
 
         return newTvSeriesLoadResponse(title, url, TvType.Cartoon, episodes) {
             this.posterUrl = poster
-            this.plot = plot
         }
     }
 
@@ -99,36 +99,14 @@ class CarateenProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val res = app.get(data)
-        val doc = res.document
-        val html = res.text
+        val response = app.get(data)
+        val doc = response.document
         var found = false
 
-        doc.select("iframe[src*='player'], iframe[src*='vidoza'], iframe[src*='ok.ru'], .video-iframe iframe").forEach { element ->
+        doc.select("iframe").forEach { element: Element ->
             val src = fixUrl(element.attr("src"))
-            loadExtractor(src, mainUrl, subtitleCallback, callback)
-            found = true
-        }
-
-        val patterns = listOf(
-            Regex("""https?://[^\s"'<>]+(?:\.m3u8|\.mp4)[^\s"'<>]*"""),
-            Regex("""file:\s*["'](https?://[^"']+)["']""")
-        )
-
-        patterns.forEach { pattern ->
-            pattern.findAll(html).forEach { match ->
-                val link = match.groupValues.last()
-                // العودة لاستخدام الـ Constructor المباشر لحل مشكلة النوع في التحميل
-                callback(
-                    ExtractorLink(
-                        this.name,
-                        this.name,
-                        link,
-                        mainUrl,
-                        Qualities.Unknown.value,
-                        link.contains(".m3u8")
-                    )
-                )
+            if (src.contains("http")) {
+                loadExtractor(src, mainUrl, subtitleCallback, callback)
                 found = true
             }
         }
