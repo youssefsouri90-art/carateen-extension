@@ -3,10 +3,9 @@ package com.momen
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Element
-import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.app // استيراد صريح لحل مشكلة Unresolved reference app
 
 class CarateenProvider : MainAPI() {
     override var mainUrl = "https://carateen.tv"
@@ -20,7 +19,7 @@ class CarateenProvider : MainAPI() {
     )
 
     override val mainPage = mainPageOf(
-        "$mainUrl/" to "الرئيسية (آخر الحلقات)",
+        "$mainUrl/" to "آخر الحلقات",
         "$mainUrl/category/%d9%83%d8%b1%d8%aa%d9%88%d9%86/" to "مسلسلات كرتون",
         "$mainUrl/category/anime/" to "أنمي صغار",
         "$mainUrl/category/%d8%b3%d9%8a%d9%86%d9%85%d8%a7-%d9%84%d9%84%d8%a3%d8%b7%d9%81%d8%a7%d9%84/" to "سينما الأطفال",
@@ -29,11 +28,9 @@ class CarateenProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page <= 1) request.data else "${request.data}/page/$page/"
-        // استخدام الطريقة الأكثر أماناً للطلب لضمان التوافق
-        val response = app.get(url)
-        val doc = response.document
+        val doc = app.get(url).document
         
-        val items = doc.select("article, .post-item, .item-list li").mapNotNull { element: Element ->
+        val items = doc.select("article, .post-item, .item-list li").mapNotNull { element ->
             parseCard(element)
         }
         
@@ -63,23 +60,21 @@ class CarateenProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val response = app.get("$mainUrl/?s=$query")
-        val doc = response.document
-        return doc.select("article, .post-item").mapNotNull { element: Element -> 
+        val doc = app.get("$mainUrl/?s=$query").document
+        return doc.select("article, .post-item").mapNotNull { element -> 
             parseCard(element) 
         }
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val response = app.get(url)
-        val doc = response.document
+        val doc = app.get(url).document
         val title = doc.selectFirst("h1, .post-title, .entry-title")?.text()?.trim() ?: ""
         val poster = fixUrl(doc.selectFirst("meta[property=og:image]")?.attr("content") ?: "")
         val plot = doc.selectFirst(".entry-content p, .post-details, .story")?.text()
 
         val episodes = mutableListOf<Episode>()
         
-        doc.select("a[href*='/watch/'], .episodes-list a, .playlist-items a").forEach { element: Element ->
+        doc.select("a[href*='/watch/'], .episodes-list a, .playlist-items a").forEach { element ->
             val href = fixUrl(element.attr("href"))
             val name = element.text().trim().ifBlank { "مشاهدة" }
             episodes.add(newEpisode(href) {
@@ -104,12 +99,12 @@ class CarateenProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val response = app.get(data)
-        val html = response.text
-        val doc = response.document
+        val res = app.get(data)
+        val doc = res.document
+        val html = res.text
         var found = false
 
-        doc.select("iframe[src*='player'], iframe[src*='vidoza'], iframe[src*='ok.ru'], .video-iframe iframe").forEach { element: Element ->
+        doc.select("iframe[src*='player'], iframe[src*='vidoza'], iframe[src*='ok.ru'], .video-iframe iframe").forEach { element ->
             val src = fixUrl(element.attr("src"))
             loadExtractor(src, mainUrl, subtitleCallback, callback)
             found = true
@@ -123,9 +118,9 @@ class CarateenProvider : MainAPI() {
         patterns.forEach { pattern ->
             pattern.findAll(html).forEach { match ->
                 val link = match.groupValues.last()
-                // استخدام newExtractorLink بدلاً من الـ Constructor القديم
+                // العودة لاستخدام الـ Constructor المباشر لحل مشكلة النوع في التحميل
                 callback(
-                    newExtractorLink(
+                    ExtractorLink(
                         this.name,
                         this.name,
                         link,
