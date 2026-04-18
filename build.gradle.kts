@@ -1,6 +1,5 @@
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 buildscript {
@@ -10,9 +9,9 @@ buildscript {
         maven("https://jitpack.io")
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.7.3")
+        classpath("com.android.tools.build:gradle:8.2.0")
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.20")
     }
 }
 
@@ -35,35 +34,31 @@ subprojects {
 
     extensions.configure<BaseExtension> {
         namespace = "com.momen.carateen"
-        compileSdkVersion(35)
+        compileSdkVersion(34)
+
         defaultConfig {
             minSdk = 21
-            targetSdk = 35
         }
+
         compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_17
-            targetCompatibility = JavaVersion.VERSION_17
+            sourceCompatibility = JavaVersion.VERSION_1_8
+            targetCompatibility = JavaVersion.VERSION_1_8
         }
+
         tasks.withType<KotlinJvmCompile>().configureEach {
-            compilerOptions {
-                jvmTarget.set(JvmTarget.JVM_17)
-                freeCompilerArgs.add("-Xskip-metadata-version-check")
+            kotlinOptions {
+                jvmTarget = "1.8"
+                freeCompilerArgs = freeCompilerArgs + "-Xskip-metadata-version-check"
             }
         }
     }
 
     dependencies {
-        val cloudstream by configurations.getting
+        val cloudstream by configurations.creating
         add(cloudstream.name, "com.github.lagradost:cloudstream3:master-SNAPSHOT")
         
-        // الحل السحري لمشكلة "Cannot access class Requests"
-        add("compileOnly", "com.github.lagradost:NiceHttp:main-SNAPSHOT")
-        
-        add("implementation", "org.jsoup:jsoup:1.18.3")
-        add("implementation", "com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2")
+        add("implementation", "org.jsoup:jsoup:1.17.2")
+        add("implementation", "com.fasterxml.jackson.module:jackson-module-kotlin:2.16.1")
+        // ملاحظة: لا نحتاج NiceHttp هنا لأنها تأتي مدمجة مع Cloudstream SNAPSHOT
     }
-}
-
-tasks.register<Delete>("clean") {
-    delete(rootProject.layout.buildDirectory)
 }
