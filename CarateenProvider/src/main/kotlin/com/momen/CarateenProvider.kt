@@ -17,8 +17,9 @@ class CarateenProvider : MainAPI() {
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val doc = app.get(if (page <= 1) request.data else "${request.data}/page/$page/").document
-        val items = doc.select("article, .post-item").mapNotNull { element: Element ->
+        val url = if (page <= 1) request.data else "${request.data}/page/$page/"
+        val res = app.get(url)
+        val items = res.document.select("article, .post-item").mapNotNull { element: Element ->
             val a = element.selectFirst("a") ?: return@mapNotNull null
             newAnimeSearchResponse(a.attr("title") ?: "No Title", a.attr("href")) {
                 this.posterUrl = fixUrl(element.selectFirst("img")?.attr("src") ?: "")
@@ -27,17 +28,9 @@ class CarateenProvider : MainAPI() {
         return newHomePageResponse(request.name, items)
     }
 
-    override suspend fun search(query: String): List<SearchResponse> {
-        return app.get("$mainUrl/?s=$query").document.select("article, .post-item").mapNotNull { element: Element ->
-            val a = element.selectFirst("a") ?: return@mapNotNull null
-            newAnimeSearchResponse(a.attr("title") ?: "", a.attr("href")) {
-                this.posterUrl = fixUrl(element.selectFirst("img")?.attr("src") ?: "")
-            }
-        }
-    }
-
     override suspend fun load(url: String): LoadResponse {
-        val doc = app.get(url).document
+        val res = app.get(url)
+        val doc = res.document
         val title = doc.selectFirst("h1")?.text() ?: ""
         val episodes = doc.select("a[href*='/watch/'], .episodes-list a").map { element: Element ->
             newEpisode(element.attr("href")) { this.name = element.text().trim() }
