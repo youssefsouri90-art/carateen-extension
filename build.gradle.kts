@@ -53,7 +53,10 @@ subprojects {
         tasks.withType<KotlinJvmCompile> {
             compilerOptions {
                 jvmTarget.set(JvmTarget.JVM_17)
-                freeCompilerArgs.addAll("-Xskip-metadata-version-check")
+                freeCompilerArgs.addAll(
+                    "-Xskip-metadata-version-check",
+                    "-Xallow-unstable-dependencies"
+                )
             }
         }
     }
@@ -62,9 +65,8 @@ subprojects {
         val cloudstream by configurations
         val implementation by configurations
 
-        // استخدام النسخة المحددة لضمان العثور عليها في JitPack
-        cloudstream("com.github.lagradost:cloudstream3:master-SNAPSHOT")
-        implementation("com.github.lagradost:NiceHttp:0.5.2") // نسخة مستقرة ومتاحة
+        // الاعتماد على نسخة pre-release لأنها تحتوي على كل التبعيات مدمجة
+        cloudstream("com.github.lagradost:cloudstream3:pre-release")
         
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.18.3")
