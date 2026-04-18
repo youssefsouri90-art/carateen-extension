@@ -1,4 +1,4 @@
-@file:Suppress("DEPRECATION")
+@file:Suppress("DEPRECATION", "DEPRECATION_ERROR")
 package com.momen
 
 import com.lagradost.cloudstream3.*
@@ -143,7 +143,7 @@ class CarateenProvider : MainAPI() {
         }
     }
 
-    @Suppress("DEPRECATION")
+    
 override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
