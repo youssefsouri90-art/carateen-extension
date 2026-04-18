@@ -178,15 +178,14 @@ class CarateenProvider : MainAPI() {
 
         links.forEach { link ->
             callback(
-    newExtractorLink(
+    ExtractorLink(
         source = name,
         name = if (link.contains(".m3u8")) "$name HLS" else name,
-        url = link
-    ) {
-        this.referer = mainUrl
-        this.quality = Qualities.Unknown.value
-        this.isM3u8 = link.contains(".m3u8")
-    }
+        url = link,
+        referer = mainUrl,
+        quality = Qualities.Unknown.value,
+        isM3u8 = link.contains(".m3u8")
+    )
 )
         }
 
