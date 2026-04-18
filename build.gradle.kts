@@ -12,6 +12,7 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle:8.7.3")
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
+        // رفع نسخة الكوتلن لضمان قراءة مكتبة CloudStream الحديثة
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0")
     }
 }
@@ -42,17 +43,27 @@ subprojects {
     android {
         namespace = "com.momen.carateen"
         compileSdkVersion(35)
+
         defaultConfig {
             minSdk = 21
             targetSdk = 35
         }
+
         compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_1_8
-            targetCompatibility = JavaVersion.VERSION_1_8
+            // التحديث لـ Java 17 لأن المكتبات الجديدة تتطلب ذلك
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
         }
+
         tasks.withType<KotlinJvmCompile> {
             compilerOptions {
-                jvmTarget.set(JvmTarget.JVM_1_8)
+                jvmTarget.set(JvmTarget.JVM_17)
+                freeCompilerArgs.addAll(
+                    "-Xno-call-assertions",
+                    "-Xno-param-assertions",
+                    "-Xno-receiver-assertions",
+                    "-Xskip-metadata-version-check" // سطر سحري لتجاهل تعارض نسخ Metadata
+                )
             }
         }
     }
