@@ -142,7 +142,8 @@ class CarateenProvider : MainAPI() {
         }
     }
 
-    override suspend fun loadLinks(
+    @Suppress("DEPRECATION")
+override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,
