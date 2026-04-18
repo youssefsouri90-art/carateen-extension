@@ -32,18 +32,31 @@ class CarateenProvider : MainAPI() {
         val res = app.get(url)
         val doc = res.document
         val title = doc.selectFirst("h1")?.text() ?: ""
+        
         val episodes = doc.select("a[href*='/watch/'], .episodes-list a").map { element: Element ->
             newEpisode(element.attr("href")) { this.name = element.text().trim() }
         }
+        
         return newTvSeriesLoadResponse(title, url, TvType.Cartoon, if(episodes.isEmpty()) listOf(newEpisode(url){ name = title }) else episodes) {
             this.posterUrl = fixUrl(doc.selectFirst("meta[property=og:image]")?.attr("content") ?: "")
         }
     }
 
-    override suspend fun loadLinks(data: String, isCasting: Boolean, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit): Boolean {
-        app.get(data).document.select("iframe").forEach { 
-            val src = it.attr("src")
-            if (src.contains("http")) loadExtractor(fixUrl(src), mainUrl, subtitleCallback, callback)
+    override suspend fun loadLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val res = app.get(data)
+        val iframes = res.document.select("iframe")
+        
+        // تم استبدال forEach بـ for لإصلاح خطأ Suspension functions
+        for (element in iframes) {
+            val src = element.attr("src")
+            if (src.contains("http")) {
+                loadExtractor(fixUrl(src), mainUrl, subtitleCallback, callback)
+            }
         }
         return true
     }
